@@ -1,0 +1,681 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "VirtualNetworkName": {
+            "type": "string",
+            "defaultValue": "AzureSite"
+        },
+        "VirtualNetworkAddressSpace": {
+            "type": "string",
+            "defaultValue": "10.10.0.0/16"
+        },
+        "FrontEndSubnetName": {
+            "type": "string",
+            "defaultValue": "FrontEnd"
+        },
+        "FrontEndSubnetAddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.10.1.0/24"
+        },
+        "BackEndSubnetName": {
+            "type": "string",
+            "defaultValue": "BackEnd"
+        },
+        "BackEndSubnetAddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.10.2.0/24"
+        },
+
+        "WebServerAvailSetName": {
+            "type": "string",
+            "defaultValue": "WebServerAvailSet"
+        },
+        "AvailabilitySetFaultDomainCount": {
+            "type": "int",
+            "defaultValue": 2
+        },
+        "AvailabilitySetUpdateDomainCount": {
+            "type": "int",
+            "defaultValue": 3
+        },
+        "PublicIpAddressType": {
+            "type": "string",
+            "defaultValue": "Dynamic",
+            "allowedValues": [
+                "Dynamic",
+                "Static"
+            ]
+        },
+        "WebServerAdminUserName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "WebServerAdminPassword": {
+            "type": "securestring"
+        },
+        "WebServerVmSize": {
+            "type": "string",
+            "defaultValue": "Standard_A2",
+            "allowedValues": [
+                "Basic_A0",
+                "Basic_A1",
+                "Basic_A2",
+                "Basic_A3",
+                "Standard_A0",
+                "Standard_A1",
+                "Standard_A2",
+                "Standard_A3",
+                "Standard_A5",
+                "Standard_A6",
+                "Standard_A1_v2",
+                "Standard_A2_v2",
+                "Standard_A4_v2",
+                "Standard_A2m_v2",
+                "Standard_A4m_v2",
+                "Standard_F1",
+                "Standard_F2",
+                "Standard_F4",
+                "Standard_F1s",
+                "Standard_F2s",
+                "Standard_F4s"
+            ]
+        },
+        "WebServerWindowsSKU": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "allowedValues": [
+                "2008-R2-SP1",
+                "2012-Datacenter",
+                "2012-R2-Datacenter",
+                "Windows-Server-Technical-Preview"
+            ]
+        },
+
+        "SqlServerAvailSetName": {
+            "type": "string",
+            "defaultValue": "SqlServerAvailSet"
+        },
+        "SqlServerVmSize": {
+            "type": "string",
+            "defaultValue": "Standard_D2_v2",
+            "allowedValues": [
+                "Basic_A2",
+                "Basic_A3",
+                "Standard_A2",
+                "Standard_A3",
+                "Standard_A5",
+                "Standard_A6",
+                "Standard_A2_v2",
+                "Standard_A4_v2",
+                "Standard_A2m_v2",
+                "Standard_A4m_v2",
+                "Standard_F1",
+                "Standard_F2",
+                "Standard_F4",
+                "Standard_F1s",
+                "Standard_F2s",
+                "Standard_F4s",
+                "Standard_D1_v2",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D11_v2"
+            ]
+        },
+        "SqlServerVMAdminUsername": {
+            "type": "string",
+            "minLength": 1
+        },
+        "SqlServerVMAdminPassword": {
+            "type": "securestring"
+        },
+        "SqlServerWindowsSKU": {
+            "type": "string",
+            "defaultValue": "Enterprise",
+            "allowedValues": [
+                "Enterprise",
+                "Standard",
+                "Web",
+                "Express"
+            ]
+        },
+        "SqlServerServiceAccountUserName": {
+            "type": "string"
+        },
+        "SqlServerServiceAccountPassword": {
+            "type": "securestring"
+        },
+        "SqlAutopatchingDayOfWeek": {
+            "type": "string",
+            "defaultValue": "Sunday",
+            "allowedValues": [
+                "Everyday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+                "Sunday"
+            ]
+        },
+        "SqlAutopatchingStartHour": {
+            "type": "string"
+        },
+        "SqlAutopatchingWindowDuration": {
+            "type": "string"
+        },
+        "SqlStorageWorkloadType": {
+            "type": "string"
+        },
+        "SqlStorageDisksCount": {
+            "type": "int"
+        },
+        "SqlStorageDisksConfigurationType": {
+            "type": "string"
+        },
+        "SqlStorageStartingDeviceId": {
+            "type": "int",
+            "defaultValue": 2
+        }
+
+    },
+    "variables": {
+        "VnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'AzureSite')]",
+        "WebServerSubnetRef": "[concat(variables('VnetID'), '/subnets/', parameters('FrontEndSubnetName'))]",
+        "SqlServerSubnetRef": "[concat(variables('VnetID'), '/subnets/', parameters('BackEndSubnetName'))]",
+
+        "WebServerInstanceCount": 2,
+        "WebServerPublicIPNamePrefix": "WebServerPublicIP",
+        "WebServerNICNamePrefix": "WebServerNIC",
+        "WebServerLoadBalancerName": "WebServerLoadBalancer",
+        "WebServerNamePrefix": "WebServer",
+        "WebServerImagePublisher": "MicrosoftWindowsServer",
+        "WebServerImageOffer": "WindowsServer",
+        "LoadBalancerPublicIPName": "LoadBalancerPublicIP",
+
+        "SqlServerInstanceCount": 2,
+        "SqlServerPublicIPNamePrefix": "SqlServerPublicIP",
+        "SqlServerNICNamePrefix": "SqlServerNIC",
+        "SqlServerLoadBalancerName": "SqlServerLoadBalancer",
+        "SqlServerNamePrefix": "SqlServer",
+        "SqlServerImagePublisher": "MicrosoftSQLServer",
+        "SqlServerImageOffer": "SQL2014SP2-WS2012R2"
+    },
+    "resources": [
+        {
+            "name": "[parameters('VirtualNetworkName')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-12-01",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "Virtual Network"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('VirtualNetworkAddressSpace')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[parameters('FrontEndSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('FrontEndSubnetAddressPrefix')]"
+                        }
+                    },
+                    {
+                        "name": "[parameters('BackEndSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[parameters('BackEndSubnetAddressPrefix')]"
+                        }
+                    }
+                ]
+            }
+        },
+
+        {
+            "name": "[parameters('WebServerAvailSetName')]",
+            "type": "Microsoft.Compute/availabilitySets",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-04-30-preview",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "WebServer Availability Set"
+            },
+            "properties": {
+                "platformUpdateDomainCount": "[parameters('AvailabilitySetUpdateDomainCount')]",
+                "platformFaultDomainCount": "[parameters('AvailabilitySetFaultDomainCount')]",
+                "managed": true
+            }
+        },
+        {
+            "name": "[concat(variables('WebServerPublicIPNamePrefix'), copyindex())]",
+            "type": "Microsoft.Network/publicIpAddresses",
+            "apiVersion": "2016-09-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIpAllocationMethod": "[parameters('PublicIpAddressType')]"
+            },
+            "copy": {
+                "name": "WebServerPIPLoop",
+                "count": "[variables('WebServerInstanceCount')]"
+            },
+            "tags": {
+                "displayName": "WebServer PublicIP"
+            }
+        },
+        {
+            "name": "[concat(variables('WebServerNICNamePrefix'), copyindex())]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-09-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', parameters('VirtualNetworkName'))]",
+                "[concat('Microsoft.Network/loadBalancers/', variables('WebServerLoadBalancerName'))]",
+                "[concat('Microsoft.Network/publicIpAddresses/', concat(variables('WebServerPublicIPNamePrefix'), copyindex()))]"
+            ],
+            "tags": {
+                "displayName": "WebServer NIC"
+            },
+            "copy": {
+                "name": "WebServerNICLoop",
+                "count": "[variables('WebServerInstanceCount')]"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('WebServerSubnetRef')]"
+                            },
+                            "publicIpAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIpAddresses', concat(variables('WebServerPublicIPNamePrefix'), copyindex()))]"
+                            },
+                            "loadBalancerBackendAddressPools": [
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/loadBalancers',variables('WebServerLoadBalancerName')), '/backendAddressPools/WebserverLBBackendPool')]"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[concat(variables('WebServerNamePrefix'), copyindex())]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-04-30-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('WebServerNICNamePrefix'), copyindex()))]",
+                "[resourceId('Microsoft.Compute/availabilitySets', parameters('WebServerAvailSetName'))]"
+            ],
+            "tags": {
+                "displayName": "WebServer VM"
+            },
+            "copy": {
+                "name": "WebServerNICLoop",
+                "count": "[variables('WebServerInstanceCount')]"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('WebServerVmSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[concat(variables('WebServerNamePrefix'), copyindex())]",
+                    "adminUsername": "[parameters('WebServerAdminUsername')]",
+                    "adminPassword": "[parameters('WebServerAdminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('WebServerImagePublisher')]",
+                        "offer": "[variables('WebServerImageOffer')]",
+                        "sku": "[parameters('WebServerWindowsSKU')]",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "managedDisk": {
+                            "storageAccountType": "Standard_LRS"
+                        },
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('WebServerNICNamePrefix'), copyindex()))]"
+                        }
+                    ]
+                },
+                "availabilitySet": {
+                    "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('WebServerAvailSetName'))]"
+                }
+            }
+        },
+        {
+            "apiVersion": "2016-09-01",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('LoadBalancerPublicIPName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic"
+            },
+            "tags": {
+                "displayName": "WebServer LB Public IP"
+            }
+        },
+        {
+            "apiVersion": "2015-06-15",
+            "name": "[variables('WebServerLoadBalancerName')]",
+            "type": "Microsoft.Network/loadBalancers",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/', 'LoadBalancerPublicIP')]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "LoadBalancerFrontend",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('LoadBalancerPublicIPName'))]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "WebserverLBBackendPool"
+                    }
+                ],
+                "probes": [
+                    {
+                        "name": "WebServerLBHealthProbe",
+                        "properties": {
+                            "protocol": "Tcp",
+                            "port": 80,
+                            "intervalInSeconds": 5,
+                            "numberOfProbes": 2
+                        }
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "name": "WebServerLBRule",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('WebServerLoadBalancerName')), '/frontendIpConfigurations/LoadBalancerFrontend')]"
+                            },
+                            "frontendPort": 80,
+                            "backendPort": 80,
+                            "enableFloatingIP": false,
+                            "idleTimeoutInMinutes": 4,
+                            "protocol": "Tcp",
+                            "loadDistribution": "Default",
+                            "backendAddressPool": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('WebServerLoadBalancerName')), '/backendAddressPools/WebserverLBBackendPool')]"
+                            },
+                            "probe": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('WebServerLoadBalancerName')), '/probes/WebServerLBHealthProbe')]"
+                            }
+                        }
+                    }
+                ]
+            },
+            "tags": {
+                "displayName": "WebServer LoadBalancer"
+            }
+        },
+
+        {
+            "name": "[parameters('SqlServerAvailSetName')]",
+            "type": "Microsoft.Compute/availabilitySets",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-04-30-preview",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "SqlServer Availability Set"
+            },
+            "properties": {
+                "platformUpdateDomainCount": "[parameters('AvailabilitySetUpdateDomainCount')]",
+                "platformFaultDomainCount": "[parameters('AvailabilitySetFaultDomainCount')]",
+                "managed": true
+            }
+        },
+        {
+            "name": "[concat(variables('SqlServerPublicIPNamePrefix'), copyindex())]",
+            "type": "Microsoft.Network/publicIpAddresses",
+            "apiVersion": "2016-09-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIpAllocationMethod": "[parameters('PublicIpAddressType')]"
+            },
+            "copy": {
+                "name": "SqlServerPIPLoop",
+                "count": "[variables('SqlServerInstanceCount')]"
+            },
+            "tags": {
+                "displayName": "SqlServer PublicIP"
+            }
+        },
+        {
+            "name": "[concat(variables('SqlServerNICNamePrefix'), copyindex())]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-09-01",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', parameters('VirtualNetworkName'))]",
+                "[concat('Microsoft.Network/loadBalancers/', variables('SqlServerLoadBalancerName'))]",
+                "[concat('Microsoft.Network/publicIpAddresses/',concat(variables('SqlServerPublicIPNamePrefix'), copyindex()))]"
+            ],
+            "tags": {
+                "displayName": "SqlServer NIC"
+            },
+            "copy": {
+                "name": "SqlServerNICLoop",
+                "count": "[variables('SqlServerInstanceCount')]"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('SqlServerSubnetRef')]"
+                            },
+                            "publicIpAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIpAddresses', concat(variables('SqlServerPublicIPNamePrefix'), copyindex()))]"
+                            },
+                            "loadBalancerBackendAddressPools": [
+                                {
+                                    "id": "[concat(resourceId('Microsoft.Network/loadBalancers',variables('SqlServerLoadBalancerName')), '/backendAddressPools/SqlserverLBBackendPool')]"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[concat(variables('SqlServerNamePrefix'), copyindex())]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2016-04-30-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('SqlServerNICNamePrefix'), copyindex()))]",
+                "[resourceId('Microsoft.Compute/availabilitySets', parameters('SqlServerAvailSetName'))]"
+            ],
+            "tags": {
+                "displayName": "SqlServer VM"
+            },
+            "copy": {
+                "name": "SqlServerLoop",
+                "count": "[variables('SqlServerInstanceCount')]"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('SqlServerVmSize')]"
+                },
+                "osProfile": {
+                    "computerName": "[concat(variables('SqlServerNamePrefix'), copyindex())]",
+                    "adminUsername": "[parameters('SqlServerVMAdminUsername')]",
+                    "adminPassword": "[parameters('SqlServerVMAdminPassword')]",
+                    "windowsConfiguration": {
+                        "provisionVmAgent": "true"
+                    }
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('SqlServerImagePublisher')]",
+                        "offer": "[variables('SqlServerImageOffer')]",
+                        "sku": "[parameters('SqlServerWindowsSKU')]",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "managedDisk": {
+                            "storageAccountType": "Standard_LRS"
+                        },
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('SqlServerNICNamePrefix'), copyindex()))]"
+                        }
+                    ]
+                },
+                "availabilitySet": {
+                    "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('SqlServerAvailSetName'))]"
+                }
+            }
+        },
+        {
+            "apiVersion": "2015-06-15",
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat(variables('SqlServerNamePrefix'), copyindex(), '/SqlIaasExtension')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', concat(variables('SqlServerNamePrefix'), copyindex()))]"
+            ],
+            "tags": {
+                "displayName": "SqlServer IaaSExtention"
+            },
+            "copy": {
+                "name": "SqlServerIaaSExtLoop",
+                "count": "[variables('SqlServerInstanceCount')]"
+            },
+            "properties": {
+                "type": "SqlIaaSAgent",
+                "publisher": "Microsoft.SqlServer.Management",
+                "typeHandlerVersion": "1.2",
+                "autoUpgradeMinorVersion": "true",
+                "settings": {
+                    "AutoTelemetrySettings": {
+                        "Region": "[resourceGroup().location]"
+                    },
+                    "AutoPatchingSettings": {
+                        "PatchCategory": "WindowsMandatoryUpdates",
+                        "Enable": true,
+                        "DayOfWeek": "[parameters('SqlAutopatchingDayOfWeek')]",
+                        "MaintenanceWindowStartingHour": "[parameters('SqlAutopatchingStartHour')]",
+                        "MaintenanceWindowDuration": "[parameters('SqlAutopatchingWindowDuration')]"
+                    },
+                    "KeyVaultCredentialSettings": {
+                        "Enable": false,
+                        "CredentialName": ""
+                    },
+                    "ServerConfigurationsManagementSettings": {
+                        "SQLConnectivityUpdateSettings": {
+                            "ConnectivityType": "Public",
+                            "Port": "1433"
+                        },
+                        "SQLWorkloadTypeUpdateSettings": {
+                            "SQLWorkloadType": "[parameters('SqlStorageWorkloadType')]"
+                        },
+
+                        "AdditionalFeaturesServerConfigurations": {
+                            "IsRServicesEnabled": false
+                        }
+                    }
+                },
+                "protectedSettings": {
+                    "SQLAuthUpdateUserName": "[parameters('SqlServerServiceAccountUserName')]",
+                    "SQLAuthUpdatePassword": "[parameters('SqlServerServiceAccountPassword')]"
+                }
+            }
+        },
+        {
+            "apiVersion": "2015-06-15",
+            "name": "[variables('SqlServerLoadBalancerName')]",
+            "type": "Microsoft.Network/loadBalancers",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', parameters('VirtualNetworkName'))]"
+            ],
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "SqlLoadBalancerFrontEnd",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', parameters('VirtualNetworkName')), '/subnets/',parameters('FrontEndSubnetName'))]"
+                            }
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "SqlserverLBBackendPool"
+                    }
+                ],
+                "probes": [
+                    {
+                        "name": "SqlServerLBHealthProbe",
+                        "properties": {
+                            "protocol": "Tcp",
+                            "port": 80,
+                            "intervalInSeconds": 5,
+                            "numberOfProbes": 2
+                        }
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "name": "SqlServerLBRule",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('SqlServerLoadBalancerName')), '/frontendIpConfigurations/SqlLoadBalancerFrontEnd')]"
+                            },
+                            "frontendPort": 80,
+                            "backendPort": 80,
+                            "enableFloatingIP": false,
+                            "idleTimeoutInMinutes": 4,
+                            "protocol": "Tcp",
+                            "loadDistribution": "Default",
+                            "backendAddressPool": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('SqlServerLoadBalancerName')), '/backendAddressPools/SqlserverLBBackendPool')]"
+                            },
+                            "probe": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('SqlServerLoadBalancerName')), '/probes/SqlServerLBHealthProbe')]"
+                            }
+                        }
+                    }
+                ]
+            },
+            "tags": {
+                "displayName": "SqlServer LoadBalancer"
+            }
+        }
+
+    ],
+
+    "outputs": {}
+}

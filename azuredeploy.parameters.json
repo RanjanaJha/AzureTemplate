@@ -1,0 +1,49 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "WebServerAdminUserName": {
+            "value": "username"
+        },
+        "WebServerAdminPassword": {
+            "value": "yourpwd"
+        },
+        "WebServerWindowsSKU": {
+            "value": "2012-R2-Datacenter"
+        },
+        "SqlServerVMAdminUsername": {
+            "value": "username"
+        },
+        "SqlServerVMAdminPassword": {
+            "value": "yourpwd"
+        },
+        "SqlServerWindowsSKU": {
+            "value": "Enterprise"
+        },
+        "SqlServerServiceAccountUserName": {
+            "value": "username"
+        },
+        "SqlServerServiceAccountPassword": {
+            "value": "userpwd"
+        },
+        "SqlAutopatchingDayOfWeek": {
+            "value": "Sunday"
+        },
+        "SqlAutopatchingStartHour": {
+            "value": "2"
+        },
+        "SqlAutopatchingWindowDuration": {
+            "value": "60"
+        },
+        "SqlStorageWorkloadType": {
+            "value": "GENERAL"
+        },
+        "SqlStorageDisksCount": {
+            "value": 1
+        },
+        "SqlStorageDisksConfigurationType": {
+            "value": "NEW"
+        }
+
+    }
+}
